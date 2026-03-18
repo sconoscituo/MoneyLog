@@ -1,5 +1,27 @@
 /* MoneyLog 커스텀 스타일 */
 
+/* ── 다크모드 CSS 변수 ──────────────────────────────────────────────────────── */
+:root {
+  --color-bg:        #f8fafc;
+  --color-surface:   #ffffff;
+  --color-border:    #e2e8f0;
+  --color-text:      #0f172a;
+  --color-text-muted:#64748b;
+  --color-primary:   #0ea5e9;
+}
+
+.dark {
+  --color-bg:        #0f172a;
+  --color-surface:   #1e293b;
+  --color-border:    #334155;
+  --color-text:      #f1f5f9;
+  --color-text-muted:#94a3b8;
+  --color-primary:   #38bdf8;
+}
+
+/* 다크모드 스크롤바 */
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
+
 /* 폰트 */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 

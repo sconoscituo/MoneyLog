@@ -114,6 +114,11 @@ async def get_monthly_report(
     )
 
 
+def get_budget_warnings(budget_statuses: list) -> list:
+    """예산의 80% 이상 사용한 항목 목록을 반환한다 (경고 배너용)."""
+    return [b for b in budget_statuses if b.usage_rate >= 0.8 and not b.is_exceeded]
+
+
 async def get_weekly_report(
     db: AsyncSession, year: int, week: int
 ) -> dict:

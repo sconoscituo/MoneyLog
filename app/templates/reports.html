@@ -7,25 +7,33 @@
   <!-- 페이지 헤더 -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">월간 리포트</h1>
-      <p class="text-sm text-gray-500 mt-1">{{ year }}년 {{ month }}월 지출 분석</p>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">월간 리포트</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ year }}년 {{ month }}월 지출 분석</p>
     </div>
-    <!-- 월 이동 -->
+    <!-- 월 이동 + PDF 다운로드 -->
     <div class="flex items-center gap-2">
       {% set prev_month = month - 1 if month > 1 else 12 %}
       {% set prev_year = year if month > 1 else year - 1 %}
       {% set next_month = month + 1 if month < 12 else 1 %}
       {% set next_year = year if month < 12 else year + 1 %}
       <a href="/reports?year={{ prev_year }}&month={{ prev_month }}"
-         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">‹</a>
-      <span class="text-sm font-medium text-gray-700 px-2">{{ year }}.{{ '%02d' % month }}</span>
+         class="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
+                text-gray-600 dark:text-gray-300 transition-colors">‹</a>
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-300 px-2">{{ year }}.{{ '%02d' % month }}</span>
       <a href="/reports?year={{ next_year }}&month={{ next_month }}"
-         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">›</a>
+         class="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
+                text-gray-600 dark:text-gray-300 transition-colors">›</a>
+      <!-- PDF 다운로드 버튼 -->
+      <a href="/api/reports/monthly/pdf?year={{ year }}&month={{ month }}"
+         class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white
+                text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        📄 PDF 다운로드
+      </a>
     </div>
   </div>
 
   <!-- 요약 배너 -->
-  <div class="bg-gradient-to-r from-sky-500 to-indigo-600 rounded-2xl p-6 text-white">
+  <div class="bg-gradient-to-r from-sky-500 to-indigo-600 dark:from-sky-700 dark:to-indigo-800 rounded-2xl p-6 text-white">
     <p class="text-sky-100 text-sm font-medium">{{ year }}년 {{ month }}월 총 지출</p>
     <p class="text-4xl font-bold mt-1">{{ "{:,.0f}".format(report.total_amount) }}<span class="text-2xl font-normal text-sky-200">원</span></p>
     <div class="flex gap-4 mt-3 text-sm text-sky-100">
@@ -39,8 +47,8 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- 카테고리 파이 차트 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-4">카테고리별 지출</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">카테고리별 지출</h2>
       {% if report.category_summaries %}
       <div class="relative h-64">
         <canvas id="categoryPieChart"></canvas>
@@ -53,8 +61,8 @@
     </div>
 
     <!-- 일별 지출 추이 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-4">일별 지출 추이</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">일별 지출 추이</h2>
       {% if report.daily_expenses %}
       <div class="relative h-64">
         <canvas id="dailyLineChart"></canvas>
@@ -69,8 +77,8 @@
 
   <!-- 카테고리별 상세 -->
   {% if report.category_summaries %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-    <h2 class="text-base font-semibold text-gray-800 mb-4">카테고리별 상세</h2>
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">카테고리별 상세</h2>
     <div class="space-y-4">
       {% for cat in report.category_summaries %}
       <div class="flex items-center gap-4">
@@ -94,8 +102,8 @@
   {% endif %}
 
   <!-- 예산 관리 -->
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-    <h2 class="text-base font-semibold text-gray-800 mb-4">예산 설정 및 현황</h2>
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">예산 설정 및 현황</h2>
 
     <!-- 예산 설정 폼 -->
     <form id="budgetForm" class="flex flex-wrap gap-3 mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">

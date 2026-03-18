@@ -19,16 +19,40 @@
 
   <!-- 예산 초과 알림 -->
   {% if exceeded_budgets %}
-  <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+  <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
     <div class="flex items-start gap-3">
       <span class="text-2xl">⚠️</span>
       <div>
-        <p class="font-semibold text-red-800">예산 초과 알림</p>
+        <p class="font-semibold text-red-800 dark:text-red-300">예산 초과 알림</p>
         <ul class="mt-1 space-y-1">
           {% for b in exceeded_budgets %}
-          <li class="text-sm text-red-700">
+          <li class="text-sm text-red-700 dark:text-red-400">
             {{ b.category_icon }} {{ b.category_name }}: 예산 {{ "{:,.0f}".format(b.budget_amount) }}원 중
             <strong>{{ "{:,.0f}".format(b.spent_amount) }}원</strong> 지출
+            ({{ "{:.0f}".format(b.usage_rate * 100) }}%)
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 예산 80% 이상 경고 배너 -->
+  {% if warning_budgets %}
+  <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+      <span class="text-2xl">🔔</span>
+      <div>
+        <p class="font-semibold text-orange-800 dark:text-orange-300">예산 소진 경고</p>
+        <p class="text-xs text-orange-600 dark:text-orange-400 mt-0.5">아래 카테고리가 예산의 80% 이상 사용되었습니다.</p>
+        <ul class="mt-2 space-y-1">
+          {% for b in warning_budgets %}
+          <li class="text-sm text-orange-700 dark:text-orange-400">
+            {{ b.category_icon }} {{ b.category_name }}:
+            예산 {{ "{:,.0f}".format(b.budget_amount) }}원 중
+            <strong>{{ "{:,.0f}".format(b.spent_amount) }}원</strong> 사용
+            — 잔액 <strong>{{ "{:,.0f}".format(b.remaining_amount) }}원</strong>
             ({{ "{:.0f}".format(b.usage_rate * 100) }}%)
           </li>
           {% endfor %}
@@ -41,35 +65,35 @@
   <!-- 요약 카드 -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <!-- 이번 달 총 지출 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <p class="text-sm text-gray-500 font-medium">이번 달 총 지출</p>
-      <p class="text-3xl font-bold text-gray-900 mt-1">
-        {{ "{:,.0f}".format(report.total_amount) }}<span class="text-lg font-normal text-gray-500">원</span>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">이번 달 총 지출</p>
+      <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+        {{ "{:,.0f}".format(report.total_amount) }}<span class="text-lg font-normal text-gray-500 dark:text-gray-400">원</span>
       </p>
-      <p class="text-xs text-gray-400 mt-2">{{ current_month }}월 {{ today.day }}일 기준</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ current_month }}월 {{ today.day }}일 기준</p>
     </div>
 
     <!-- 카테고리 수 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <p class="text-sm text-gray-500 font-medium">지출 항목 수</p>
-      <p class="text-3xl font-bold text-gray-900 mt-1">
-        {{ report.category_summaries | sum(attribute='count') }}<span class="text-lg font-normal text-gray-500">건</span>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">지출 항목 수</p>
+      <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+        {{ report.category_summaries | sum(attribute='count') }}<span class="text-lg font-normal text-gray-500 dark:text-gray-400">건</span>
       </p>
-      <p class="text-xs text-gray-400 mt-2">{{ report.category_summaries | length }}개 카테고리</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ report.category_summaries | length }}개 카테고리</p>
     </div>
 
     <!-- 일평균 지출 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <p class="text-sm text-gray-500 font-medium">일평균 지출</p>
-      <p class="text-3xl font-bold text-gray-900 mt-1">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">일평균 지출</p>
+      <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
         {% if today.day > 0 %}
         {{ "{:,.0f}".format(report.total_amount / today.day) }}
         {% else %}
         0
         {% endif %}
-        <span class="text-lg font-normal text-gray-500">원</span>
+        <span class="text-lg font-normal text-gray-500 dark:text-gray-400">원</span>
       </p>
-      <p class="text-xs text-gray-400 mt-2">{{ today.day }}일 기준 평균</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{{ today.day }}일 기준 평균</p>
     </div>
   </div>
 
@@ -77,8 +101,8 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- 카테고리별 도넛 차트 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-4">카테고리별 지출 비율</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">카테고리별 지출 비율</h2>
       {% if report.category_summaries %}
       <div class="relative h-56">
         <canvas id="categoryChart"></canvas>
@@ -108,8 +132,8 @@
     </div>
 
     <!-- 일별 지출 추이 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-4">일별 지출 추이</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">일별 지출 추이</h2>
       {% if report.daily_expenses %}
       <div class="relative h-56">
         <canvas id="dailyChart"></canvas>
@@ -127,10 +151,10 @@
 
   <!-- 예산 현황 -->
   {% if report.budget_statuses %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-base font-semibold text-gray-800">예산 현황</h2>
-      <a href="/reports" class="text-sm text-sky-600 hover:underline">예산 관리 →</a>
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">예산 현황</h2>
+      <a href="/reports" class="text-sm text-sky-600 dark:text-sky-400 hover:underline">예산 관리 →</a>
     </div>
     <div class="space-y-4">
       {% for b in report.budget_statuses %}
@@ -157,10 +181,10 @@
   {% endif %}
 
   <!-- 최근 지출 -->
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-base font-semibold text-gray-800">최근 지출</h2>
-      <a href="/expenses" class="text-sm text-sky-600 hover:underline">전체 보기 →</a>
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">최근 지출</h2>
+      <a href="/expenses" class="text-sm text-sky-600 dark:text-sky-400 hover:underline">전체 보기 →</a>
     </div>
     {% if recent_expenses %}
     <div class="divide-y divide-gray-50">

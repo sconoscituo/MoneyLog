@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}반복 지출{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- 페이지 헤더 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">반복 지출 관리</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">매월/매주 자동으로 등록되는 지출을 설정합니다.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+    <!-- 등록 폼 -->
+    <div class="lg:col-span-2">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+        <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">반복 지출 등록</h2>
+        <form id="recurringForm" class="space-y-4">
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              금액 <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <input type="number" id="amount" placeholder="0" min="1" required
+                     class="w-full pl-3 pr-10 py-2.5 border border-gray-200 dark:border-gray-600
+                            rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-300
+                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">원</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              카테고리 <span class="text-red-500">*</span>
+            </label>
+            <select id="category_id" required
+                    class="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-sky-300
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              <option value="">카테고리 선택</option>
+              {% for cat in categories %}
+              <option value="{{ cat.id }}">{{ cat.icon }} {{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">설명/메모</label>
+            <input type="text" id="description" placeholder="예: 넷플릭스 구독료" maxlength="200"
+                   class="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
+                          focus:outline-none focus:ring-2 focus:ring-sky-300
+                          bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              반복 주기 <span class="text-red-500">*</span>
+            </label>
+            <select id="frequency" required onchange="updateDayLabel()"
+                    class="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-sky-300
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              <option value="monthly">매월 (monthly)</option>
+              <option value="weekly">매주 (weekly)</option>
+            </select>
+          </div>
+
+          <div>
+            <label id="dayLabel" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              매월 며칠 <span class="text-red-500">*</span>
+            </label>
+            <select id="day_of_month" required
+                    class="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
+                           focus:outline-none focus:ring-2 focus:ring-sky-300
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              <!-- 월간 옵션 (1~28일) -->
+              <optgroup id="monthlyOptions" label="날짜 선택">
+                {% for d in range(1, 29) %}
+                <option value="{{ d }}">{{ d }}일</option>
+                {% endfor %}
+              </optgroup>
+            </select>
+          </div>
+
+          <button type="submit"
+                  class="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium py-2.5
+                         rounded-lg text-sm transition-colors">
+            반복 지출 등록
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 목록 -->
+    <div class="lg:col-span-3">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">
+            등록된 반복 지출
+            <span class="text-sm font-normal text-gray-400 ml-1">({{ recurring_items | length }}건)</span>
+          </h2>
+        </div>
+
+        {% if recurring_items %}
+        <div class="divide-y divide-gray-50 dark:divide-gray-700" id="recurringList">
+          {% for item in recurring_items %}
+          <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors group"
+               id="recurring-{{ item.id }}">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="text-2xl flex-shrink-0">{{ item.category.icon }}</span>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                  {{ item.description or item.category.name }}
+                </p>
+                <p class="text-xs text-gray-400">
+                  {{ item.category.name }} ·
+                  {% if item.frequency == 'monthly' %}
+                    매월 {{ item.day_of_month }}일
+                  {% else %}
+                    매주 {{ ['월', '화', '수', '목', '금', '토', '일'][item.day_of_month] }}요일
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {{ "{:,.0f}".format(item.amount) }}원
+              </span>
+              <!-- 활성화 토글 -->
+              <button onclick="toggleActive({{ item.id }}, {{ 'false' if item.is_active else 'true' }})"
+                      class="text-xs px-2 py-1 rounded-full transition-colors
+                             {% if item.is_active %}bg-green-100 text-green-700 hover:bg-green-200{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                {{ '활성' if item.is_active else '비활성' }}
+              </button>
+              <button onclick="deleteRecurring({{ item.id }})"
+                      class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600
+                             text-xs px-2 py-1 rounded transition-all">
+                삭제
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-16 text-center text-gray-400 dark:text-gray-500">
+          <p class="text-5xl mb-3">🔄</p>
+          <p class="text-sm">등록된 반복 지출이 없습니다.</p>
+          <p class="text-xs mt-1">왼쪽 폼에서 반복 지출을 등록해보세요.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 안내 박스 -->
+      <div class="mt-4 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-xl p-4">
+        <p class="text-sm font-medium text-sky-800 dark:text-sky-300">💡 반복 지출 안내</p>
+        <ul class="mt-2 space-y-1 text-xs text-sky-700 dark:text-sky-400">
+          <li>• 앱이 시작될 때 오늘 날짜에 해당하는 반복 지출이 자동으로 등록됩니다.</li>
+          <li>• 매월: 설정한 날짜(1~28일)에 자동 등록됩니다.</li>
+          <li>• 매주: 설정한 요일에 자동 등록됩니다.</li>
+          <li>• 비활성화하면 자동 등록이 중단됩니다.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast"
+     class="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl
+            shadow-xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: '월요일' },
+  { value: 1, label: '화요일' },
+  { value: 2, label: '수요일' },
+  { value: 3, label: '목요일' },
+  { value: 4, label: '금요일' },
+  { value: 5, label: '토요일' },
+  { value: 6, label: '일요일' },
+];
+
+function updateDayLabel() {
+  const freq = document.getElementById('frequency').value;
+  const select = document.getElementById('day_of_month');
+  const label = document.getElementById('dayLabel');
+
+  select.innerHTML = '';
+  if (freq === 'monthly') {
+    label.textContent = '매월 며칠 *';
+    for (let d = 1; d <= 28; d++) {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d + '일';
+      select.appendChild(opt);
+    }
+  } else {
+    label.textContent = '매주 무슨 요일 *';
+    WEEKDAY_OPTIONS.forEach(w => {
+      const opt = document.createElement('option');
+      opt.value = w.value;
+      opt.textContent = w.label;
+      select.appendChild(opt);
+    });
+  }
+}
+
+// 반복 지출 등록
+document.getElementById('recurringForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = '등록 중...';
+
+  const payload = {
+    amount: parseFloat(document.getElementById('amount').value),
+    category_id: parseInt(document.getElementById('category_id').value),
+    description: document.getElementById('description').value,
+    frequency: document.getElementById('frequency').value,
+    day_of_month: parseInt(document.getElementById('day_of_month').value),
+  };
+
+  try {
+    const res = await fetch('/api/recurring', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '등록 실패');
+    showToast('✅ 반복 지출이 등록되었습니다.');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+    btn.disabled = false;
+    btn.textContent = '반복 지출 등록';
+  }
+});
+
+// 활성화 토글
+async function toggleActive(id, newActive) {
+  try {
+    const res = await fetch(`/api/recurring/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: newActive === 'true' || newActive === true }),
+    });
+    if (!res.ok) throw new Error('수정 실패');
+    showToast(newActive ? '✅ 활성화되었습니다.' : '⏸ 비활성화되었습니다.');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+  }
+}
+
+// 삭제
+async function deleteRecurring(id) {
+  if (!confirm('이 반복 지출을 삭제하시겠습니까?')) return;
+  try {
+    const res = await fetch(`/api/recurring/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('삭제 실패');
+    document.getElementById(`recurring-${id}`)?.remove();
+    showToast('🗑️ 삭제되었습니다.');
+  } catch (err) {
+    showToast('❌ 삭제에 실패했습니다.', true);
+  }
+}
+
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `fixed bottom-6 right-6 text-white text-sm px-5 py-3 rounded-xl shadow-xl
+    transition-all duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+  el.style.opacity = '1';
+  el.style.transform = 'translateY(0)';
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(1rem)';
+  }, 3000);
+}
+</script>
+{% endblock %}

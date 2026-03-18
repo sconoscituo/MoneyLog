@@ -41,6 +41,10 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         # 예산 초과 알림
         exceeded_budgets = [b for b in report.budget_statuses if b.is_exceeded]
 
+        # 예산 80% 이상 경고 (초과 제외)
+        from app.services.report import get_budget_warnings
+        warning_budgets = get_budget_warnings(report.budget_statuses)
+
         return templates.TemplateResponse(
             "dashboard.html",
             {
@@ -48,6 +52,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
                 "report": report,
                 "recent_expenses": recent_expenses,
                 "exceeded_budgets": exceeded_budgets,
+                "warning_budgets": warning_budgets,
                 "today": today,
                 "current_year": year,
                 "current_month": month,
@@ -143,4 +148,34 @@ async def reports_page(
         )
     except Exception as e:
         logger.error(f"리포트 페이지 오류: {e}")
+        raise HTTPException(status_code=500, detail="페이지를 불러올 수 없습니다.")
+
+
+@router.get("/recurring", response_class=HTMLResponse)
+async def recurring_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """반복 지출 관리 페이지"""
+    try:
+        from app.models.recurring import RecurringExpense
+        from sqlalchemy.orm import selectinload as _selectinload
+
+        result = await db.execute(
+            select(RecurringExpense)
+            .options(_selectinload(RecurringExpense.category))
+            .order_by(RecurringExpense.id)
+        )
+        recurring_items = result.scalars().all()
+
+        cats_result = await db.execute(select(Category).order_by(Category.id))
+        categories = cats_result.scalars().all()
+
+        return templates.TemplateResponse(
+            "recurring.html",
+            {
+                "request": request,
+                "recurring_items": recurring_items,
+                "categories": categories,
+            },
+        )
+    except Exception as e:
+        logger.error(f"반복 지출 페이지 오류: {e}")
         raise HTTPException(status_code=500, detail="페이지를 불러올 수 없습니다.")

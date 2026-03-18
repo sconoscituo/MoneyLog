@@ -5,26 +5,40 @@
 <div class="space-y-6">
 
   <!-- 페이지 헤더 -->
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between flex-wrap gap-3">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">지출 내역</h1>
-      <p class="text-sm text-gray-500 mt-1">{{ year }}년 {{ month }}월 · 총 {{ "{:,.0f}".format(total) }}원</p>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">지출 내역</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ year }}년 {{ month }}월 · 총 {{ "{:,.0f}".format(total) }}원</p>
     </div>
-    <!-- 월 이동 -->
-    <div class="flex items-center gap-2">
+    <!-- 월 이동 + 엑셀 버튼 -->
+    <div class="flex items-center gap-2 flex-wrap">
       {% set prev_month = month - 1 if month > 1 else 12 %}
       {% set prev_year = year if month > 1 else year - 1 %}
       {% set next_month = month + 1 if month < 12 else 1 %}
       {% set next_year = year if month < 12 else year + 1 %}
       <a href="/expenses?year={{ prev_year }}&month={{ prev_month }}"
-         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
+         class="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50
+                dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors">
         ‹
       </a>
-      <span class="text-sm font-medium text-gray-700 px-2">{{ year }}.{{ '%02d' % month }}</span>
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-300 px-2">{{ year }}.{{ '%02d' % month }}</span>
       <a href="/expenses?year={{ next_year }}&month={{ next_month }}"
-         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
+         class="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50
+                dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors">
         ›
       </a>
+      <!-- 엑셀 내보내기 -->
+      <a href="/api/exports/excel?year={{ year }}&month={{ month }}"
+         class="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white
+                text-sm font-medium px-3 py-2 rounded-lg transition-colors">
+        📥 엑셀 내보내기
+      </a>
+      <!-- 엑셀 가져오기 -->
+      <label class="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white
+                    text-sm font-medium px-3 py-2 rounded-lg transition-colors cursor-pointer">
+        📤 엑셀 가져오기
+        <input type="file" id="excelImportInput" accept=".xlsx" class="hidden" onchange="importExcel(this)" />
+      </label>
     </div>
   </div>
 
@@ -34,7 +48,7 @@
     <div class="lg:col-span-2 space-y-4">
 
       <!-- 탭 -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div class="flex border-b border-gray-100">
           <button onclick="switchTab('manual')" id="tab-manual"
                   class="flex-1 py-3 text-sm font-medium text-sky-600 border-b-2 border-sky-500 bg-sky-50 transition-colors">
@@ -148,9 +162,9 @@
 
     <!-- 오른쪽: 지출 목록 -->
     <div class="lg:col-span-3">
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <div class="px-6 py-4 border-b border-gray-100">
-          <h2 class="text-base font-semibold text-gray-800">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">
             지출 목록
             <span class="text-sm font-normal text-gray-400 ml-1">({{ expenses | length }}건)</span>
           </h2>
@@ -349,6 +363,36 @@ async function deleteExpense(id) {
   } catch (err) {
     showToast('❌ 삭제에 실패했습니다.', true);
   }
+}
+
+// 엑셀 가져오기
+async function importExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  showToast('📤 엑셀 파일을 처리 중입니다...');
+  try {
+    const res = await fetch('/api/imports/excel', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '가져오기 실패');
+
+    let msg = `✅ ${data.added}건 등록 완료`;
+    if (data.errors && data.errors.length > 0) {
+      msg += ` (${data.errors.length}건 오류)`;
+    }
+    showToast(msg);
+    setTimeout(() => location.reload(), 1200);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+  }
+  // 파일 입력 초기화 (같은 파일 재업로드 허용)
+  input.value = '';
 }
 
 // 토스트 알림

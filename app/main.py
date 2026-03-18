@@ -13,6 +13,8 @@ from app.routers import expenses as expenses_router
 from app.routers import budgets as budgets_router
 from app.routers import reports as reports_router
 from app.routers import pages as pages_router
+from app.routers import recurring as recurring_router
+from app.routers import exports as exports_router
 
 # 로깅 설정
 logging.basicConfig(
@@ -52,9 +54,64 @@ async def lifespan(app: FastAPI):
     await seed_default_categories()
     logger.info("기본 카테고리 시드 완료")
 
+    # 반복 지출 자동 등록 체크 (앱 시작 시 오늘 날짜 기준)
+    await apply_recurring_expenses()
+    logger.info("반복 지출 자동 등록 체크 완료")
+
     yield
 
     logger.info("MoneyLog 앱 종료")
+
+
+async def apply_recurring_expenses():
+    """오늘 날짜 기준으로 반복 지출을 자동 등록한다.
+
+    - monthly: day_of_month == 오늘 일(day)
+    - weekly:  day_of_month == 오늘 요일(0=월~6=일)
+    이미 오늘 등록된 항목은 중복 등록하지 않는다 (last_applied 날짜 비교).
+    """
+    from datetime import date, datetime
+    from app.database import AsyncSessionLocal
+    from app.models.recurring import RecurringExpense
+    from app.models.expense import Expense
+    from sqlalchemy import select
+
+    today = date.today()
+    today_weekday = today.weekday()  # 0=월요일
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(RecurringExpense).where(RecurringExpense.is_active == True)  # noqa: E712
+        )
+        items = result.scalars().all()
+
+        registered = 0
+        for item in items:
+            # 이미 오늘 등록했으면 건너뜀
+            if item.last_applied and item.last_applied.date() == today:
+                continue
+
+            # 주기 조건 확인
+            should_apply = False
+            if item.frequency == "monthly" and item.day_of_month == today.day:
+                should_apply = True
+            elif item.frequency == "weekly" and item.day_of_month == today_weekday:
+                should_apply = True
+
+            if should_apply:
+                expense = Expense(
+                    amount=item.amount,
+                    category_id=item.category_id,
+                    memo=item.description or "반복 지출",
+                    expense_date=today,
+                )
+                db.add(expense)
+                item.last_applied = datetime.now()
+                registered += 1
+
+        if registered:
+            await db.commit()
+            logger.info(f"반복 지출 {registered}건 자동 등록됨")
 
 
 async def seed_default_categories():
@@ -92,6 +149,8 @@ app.include_router(expenses_router.router)
 app.include_router(expenses_router.category_router)
 app.include_router(budgets_router.router)
 app.include_router(reports_router.router)
+app.include_router(recurring_router.router)
+app.include_router(exports_router.router)
 
 
 @app.exception_handler(404)
