@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}지출 내역{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- 페이지 헤더 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">지출 내역</h1>
+      <p class="text-sm text-gray-500 mt-1">{{ year }}년 {{ month }}월 · 총 {{ "{:,.0f}".format(total) }}원</p>
+    </div>
+    <!-- 월 이동 -->
+    <div class="flex items-center gap-2">
+      {% set prev_month = month - 1 if month > 1 else 12 %}
+      {% set prev_year = year if month > 1 else year - 1 %}
+      {% set next_month = month + 1 if month < 12 else 1 %}
+      {% set next_year = year if month < 12 else year + 1 %}
+      <a href="/expenses?year={{ prev_year }}&month={{ prev_month }}"
+         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
+        ‹
+      </a>
+      <span class="text-sm font-medium text-gray-700 px-2">{{ year }}.{{ '%02d' % month }}</span>
+      <a href="/expenses?year={{ next_year }}&month={{ next_month }}"
+         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
+        ›
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+    <!-- 왼쪽: 지출 등록 패널 -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- 탭 -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="flex border-b border-gray-100">
+          <button onclick="switchTab('manual')" id="tab-manual"
+                  class="flex-1 py-3 text-sm font-medium text-sky-600 border-b-2 border-sky-500 bg-sky-50 transition-colors">
+            ✏️ 직접 입력
+          </button>
+          <button onclick="switchTab('sms')" id="tab-sms"
+                  class="flex-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+            📱 문자 파싱
+          </button>
+        </div>
+
+        <!-- 직접 입력 폼 -->
+        <div id="panel-manual" class="p-5">
+          <form id="expenseForm" class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">금액 <span class="text-red-500">*</span></label>
+              <div class="relative">
+                <input type="number" id="amount" name="amount" placeholder="0" min="1"
+                       class="w-full pl-3 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm
+                              focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400" required />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">원</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">카테고리 <span class="text-red-500">*</span></label>
+              <select id="category_id" name="category_id"
+                      class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm
+                             focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400" required>
+                <option value="">카테고리 선택</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.icon }} {{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">메모</label>
+              <div class="flex gap-2">
+                <input type="text" id="memo" name="memo" placeholder="예: 스타벅스 아메리카노" maxlength="200"
+                       class="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-sm
+                              focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400" />
+                <button type="button" onclick="suggestCategory()"
+                        class="px-3 py-2.5 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200
+                               rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
+                  AI 추천
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">날짜</label>
+              <input type="date" id="expense_date" name="expense_date" value="{{ today }}"
+                     class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm
+                            focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400" />
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium py-2.5
+                           rounded-lg text-sm transition-colors">
+              지출 등록
+            </button>
+          </form>
+        </div>
+
+        <!-- SMS 파싱 패널 -->
+        <div id="panel-sms" class="p-5 hidden">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">카드 결제 문자 붙여넣기</label>
+              <textarea id="smsText" rows="4" placeholder="예시:&#10;[KB국민] 홍길동님 12,500원 스타벅스 승인&#10;[신한카드] 15,000원 결제 배달의민족"
+                        class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none
+                               focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"></textarea>
+            </div>
+            <button onclick="parseSMS()"
+                    class="w-full bg-violet-600 hover:bg-violet-700 text-white font-medium py-2.5
+                           rounded-lg text-sm transition-colors">
+              문자 파싱하기
+            </button>
+
+            <!-- 파싱 결과 -->
+            <div id="smsResult" class="hidden bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
+              <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">파싱 결과</p>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">금액</span>
+                  <span class="font-semibold text-gray-900" id="parsedAmount">-</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">가맹점</span>
+                  <span class="font-medium text-gray-800" id="parsedMemo">-</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">추천 카테고리</span>
+                  <span class="font-medium text-violet-700" id="parsedCategory">-</span>
+                </div>
+              </div>
+              <button onclick="registerParsed()"
+                      class="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium py-2
+                             rounded-lg text-sm transition-colors">
+                이 내용으로 등록
+              </button>
+            </div>
+
+            <div id="smsError" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 오른쪽: 지출 목록 -->
+    <div class="lg:col-span-3">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h2 class="text-base font-semibold text-gray-800">
+            지출 목록
+            <span class="text-sm font-normal text-gray-400 ml-1">({{ expenses | length }}건)</span>
+          </h2>
+        </div>
+
+        {% if expenses %}
+        <div class="divide-y divide-gray-50" id="expenseList">
+          {% for exp in expenses %}
+          <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors group"
+               id="expense-{{ exp.id }}">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="text-2xl flex-shrink-0">{{ exp.category.icon }}</span>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-gray-800 truncate">
+                  {{ exp.memo or exp.category.name }}
+                </p>
+                <p class="text-xs text-gray-400">
+                  {{ exp.expense_date.strftime('%m월 %d일') }} · {{ exp.category.name }}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span class="text-sm font-semibold text-gray-900">
+                -{{ "{:,.0f}".format(exp.amount) }}원
+              </span>
+              <button onclick="deleteExpense({{ exp.id }})"
+                      class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600
+                             text-xs px-2 py-1 rounded transition-all">
+                삭제
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-16 text-center text-gray-400">
+          <p class="text-5xl mb-3">📭</p>
+          <p class="text-sm">{{ year }}년 {{ month }}월 지출 내역이 없습니다.</p>
+          <p class="text-xs mt-1">왼쪽 폼에서 지출을 등록해보세요.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 토스트 알림 -->
+<div id="toast"
+     class="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl
+            shadow-xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 현재 파싱된 데이터 저장
+let parsedData = null;
+const categories = JSON.parse({{ categories | tojson | tojson }});
+
+function switchTab(tab) {
+  const isManual = tab === 'manual';
+  document.getElementById('panel-manual').classList.toggle('hidden', !isManual);
+  document.getElementById('panel-sms').classList.toggle('hidden', isManual);
+  document.getElementById('tab-manual').className = `flex-1 py-3 text-sm font-medium transition-colors ${
+    isManual ? 'text-sky-600 border-b-2 border-sky-500 bg-sky-50' : 'text-gray-500 hover:text-gray-700'
+  }`;
+  document.getElementById('tab-sms').className = `flex-1 py-3 text-sm font-medium transition-colors ${
+    !isManual ? 'text-sky-600 border-b-2 border-sky-500 bg-sky-50' : 'text-gray-500 hover:text-gray-700'
+  }`;
+}
+
+// 지출 등록 폼 제출
+document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = '등록 중...';
+
+  const payload = {
+    amount: parseFloat(document.getElementById('amount').value),
+    category_id: parseInt(document.getElementById('category_id').value),
+    memo: document.getElementById('memo').value,
+    expense_date: document.getElementById('expense_date').value,
+  };
+
+  try {
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '등록 실패');
+    showToast('✅ 지출이 등록되었습니다.');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+    btn.disabled = false;
+    btn.textContent = '지출 등록';
+  }
+});
+
+// AI 카테고리 추천
+async function suggestCategory() {
+  const memo = document.getElementById('memo').value.trim();
+  if (!memo) { showToast('메모를 먼저 입력해주세요.', true); return; }
+  try {
+    const res = await fetch('/api/expenses/suggest-category', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memo }),
+    });
+    const data = await res.json();
+    document.getElementById('category_id').value = data.category_id;
+    showToast(`💡 "${data.category_name}" 카테고리를 추천합니다.`);
+  } catch (err) {
+    showToast('카테고리 추천에 실패했습니다.', true);
+  }
+}
+
+// SMS 파싱
+async function parseSMS() {
+  const smsText = document.getElementById('smsText').value.trim();
+  if (!smsText) { showToast('문자를 붙여넣기 해주세요.', true); return; }
+
+  document.getElementById('smsResult').classList.add('hidden');
+  document.getElementById('smsError').classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/expenses/parse-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sms_text: smsText }),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      document.getElementById('smsError').textContent = data.message;
+      document.getElementById('smsError').classList.remove('hidden');
+      return;
+    }
+
+    parsedData = data;
+    document.getElementById('parsedAmount').textContent = Number(data.amount).toLocaleString() + '원';
+    document.getElementById('parsedMemo').textContent = data.memo || '-';
+    document.getElementById('parsedCategory').textContent = data.suggested_category_name
+      ? categories.find(c => c.id === data.suggested_category_id)?.icon + ' ' + data.suggested_category_name
+      : '미분류';
+    document.getElementById('smsResult').classList.remove('hidden');
+  } catch (err) {
+    showToast('파싱 중 오류가 발생했습니다.', true);
+  }
+}
+
+// 파싱된 내용으로 지출 등록
+async function registerParsed() {
+  if (!parsedData) return;
+
+  const catId = parsedData.suggested_category_id;
+  if (!catId) {
+    showToast('카테고리를 선택할 수 없습니다. 직접 입력 탭에서 등록해주세요.', true);
+    return;
+  }
+
+  const payload = {
+    amount: parsedData.amount,
+    category_id: catId,
+    memo: parsedData.memo || '',
+    expense_date: parsedData.expense_date || new Date().toISOString().split('T')[0],
+    raw_sms: parsedData.raw_sms,
+  };
+
+  try {
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '등록 실패');
+    showToast('✅ 지출이 등록되었습니다.');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+  }
+}
+
+// 지출 삭제
+async function deleteExpense(id) {
+  if (!confirm('이 지출을 삭제하시겠습니까?')) return;
+  try {
+    const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('삭제 실패');
+    document.getElementById(`expense-${id}`)?.remove();
+    showToast('🗑️ 삭제되었습니다.');
+  } catch (err) {
+    showToast('❌ 삭제에 실패했습니다.', true);
+  }
+}
+
+// 토스트 알림
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `fixed bottom-6 right-6 text-white text-sm px-5 py-3 rounded-xl shadow-xl
+    transition-all duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+  el.style.opacity = '1';
+  el.style.transform = 'translateY(0)';
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(1rem)';
+  }, 3000);
+}
+</script>
+{% endblock %}

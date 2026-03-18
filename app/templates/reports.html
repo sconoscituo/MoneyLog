@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}리포트{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- 페이지 헤더 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">월간 리포트</h1>
+      <p class="text-sm text-gray-500 mt-1">{{ year }}년 {{ month }}월 지출 분석</p>
+    </div>
+    <!-- 월 이동 -->
+    <div class="flex items-center gap-2">
+      {% set prev_month = month - 1 if month > 1 else 12 %}
+      {% set prev_year = year if month > 1 else year - 1 %}
+      {% set next_month = month + 1 if month < 12 else 1 %}
+      {% set next_year = year if month < 12 else year + 1 %}
+      <a href="/reports?year={{ prev_year }}&month={{ prev_month }}"
+         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">‹</a>
+      <span class="text-sm font-medium text-gray-700 px-2">{{ year }}.{{ '%02d' % month }}</span>
+      <a href="/reports?year={{ next_year }}&month={{ next_month }}"
+         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">›</a>
+    </div>
+  </div>
+
+  <!-- 요약 배너 -->
+  <div class="bg-gradient-to-r from-sky-500 to-indigo-600 rounded-2xl p-6 text-white">
+    <p class="text-sky-100 text-sm font-medium">{{ year }}년 {{ month }}월 총 지출</p>
+    <p class="text-4xl font-bold mt-1">{{ "{:,.0f}".format(report.total_amount) }}<span class="text-2xl font-normal text-sky-200">원</span></p>
+    <div class="flex gap-4 mt-3 text-sm text-sky-100">
+      <span>{{ report.category_summaries | sum(attribute='count') }}건 지출</span>
+      <span>·</span>
+      <span>{{ report.category_summaries | length }}개 카테고리</span>
+    </div>
+  </div>
+
+  <!-- 차트 + 카테고리 분석 -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- 카테고리 파이 차트 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-4">카테고리별 지출</h2>
+      {% if report.category_summaries %}
+      <div class="relative h-64">
+        <canvas id="categoryPieChart"></canvas>
+      </div>
+      {% else %}
+      <div class="h-64 flex items-center justify-center text-gray-400">
+        <div class="text-center"><p class="text-4xl mb-2">📭</p><p class="text-sm">데이터가 없습니다.</p></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 일별 지출 추이 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-4">일별 지출 추이</h2>
+      {% if report.daily_expenses %}
+      <div class="relative h-64">
+        <canvas id="dailyLineChart"></canvas>
+      </div>
+      {% else %}
+      <div class="h-64 flex items-center justify-center text-gray-400">
+        <div class="text-center"><p class="text-4xl mb-2">📈</p><p class="text-sm">데이터가 없습니다.</p></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 카테고리별 상세 -->
+  {% if report.category_summaries %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">카테고리별 상세</h2>
+    <div class="space-y-4">
+      {% for cat in report.category_summaries %}
+      <div class="flex items-center gap-4">
+        <span class="text-2xl w-8 text-center flex-shrink-0">{{ cat.category_icon }}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-medium text-gray-700">{{ cat.category_name }}</span>
+            <div class="text-right flex-shrink-0 ml-4">
+              <span class="text-sm font-semibold text-gray-900">{{ "{:,.0f}".format(cat.total_amount) }}원</span>
+              <span class="text-xs text-gray-400 ml-2">{{ cat.count }}건 · {{ cat.percentage }}%</span>
+            </div>
+          </div>
+          <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full" style="width: {{ cat.percentage }}%; background-color: {{ cat.category_color }}"></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 예산 관리 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">예산 설정 및 현황</h2>
+
+    <!-- 예산 설정 폼 -->
+    <form id="budgetForm" class="flex flex-wrap gap-3 mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+      <select id="budgetCategory" required
+              class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-300">
+        <option value="">카테고리 선택</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.icon }} {{ cat.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="relative">
+        <input type="number" id="budgetAmount" placeholder="예산 금액" min="1"
+               class="pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm w-40
+                      focus:outline-none focus:ring-2 focus:ring-sky-300" required />
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">원</span>
+      </div>
+      <button type="submit"
+              class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium
+                     rounded-lg transition-colors">
+        예산 설정
+      </button>
+    </form>
+
+    <!-- 예산 현황 목록 -->
+    {% if report.budget_statuses %}
+    <div class="space-y-4">
+      {% for b in report.budget_statuses %}
+      <div class="p-4 rounded-xl border {% if b.is_exceeded %}border-red-200 bg-red-50{% else %}border-gray-100{% endif %}">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">{{ b.category_icon }}</span>
+            <span class="text-sm font-medium text-gray-800">{{ b.category_name }}</span>
+            {% if b.is_exceeded %}
+            <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">초과</span>
+            {% elif b.usage_rate > 0.8 %}
+            <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">주의</span>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <p class="text-sm font-semibold {% if b.is_exceeded %}text-red-700{% else %}text-gray-900{% endif %}">
+                {{ "{:,.0f}".format(b.spent_amount) }}원 사용
+              </p>
+              <p class="text-xs text-gray-400">예산 {{ "{:,.0f}".format(b.budget_amount) }}원</p>
+            </div>
+            <button onclick="deleteBudget({{ b.category_id }})"
+                    class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1">✕</button>
+          </div>
+        </div>
+        <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all"
+               style="width: {{ [b.usage_rate * 100, 100] | min }}%;
+                      background-color: {% if b.is_exceeded %}#ef4444{% elif b.usage_rate > 0.8 %}#f97316{% else %}{{ b.category_color }}{% endif %}">
+          </div>
+        </div>
+        <div class="flex justify-between mt-1 text-xs text-gray-400">
+          <span>{{ "{:.0f}".format(b.usage_rate * 100) }}% 사용</span>
+          {% if b.is_exceeded %}
+          <span class="text-red-500 font-medium">{{ "{:,.0f}".format(b.spent_amount - b.budget_amount) }}원 초과</span>
+          {% else %}
+          <span>{{ "{:,.0f}".format(b.remaining_amount) }}원 남음</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-400">
+      <p class="text-4xl mb-2">🎯</p>
+      <p class="text-sm">아직 예산이 설정되지 않았습니다.</p>
+      <p class="text-xs mt-1">위 폼에서 카테고리별 예산을 설정해보세요.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- 토스트 -->
+<div id="toast"
+     class="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl
+            shadow-xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const categoryData = JSON.parse({{ report.category_summaries | tojson | tojson }});
+const dailyData = JSON.parse({{ report.daily_expenses | tojson | tojson }});
+const currentYear = {{ year }};
+const currentMonth = {{ month }};
+
+// 카테고리 파이 차트
+if (categoryData.length > 0) {
+  const ctx = document.getElementById('categoryPieChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: categoryData.map(c => c.category_icon + ' ' + c.category_name),
+      datasets: [{
+        data: categoryData.map(c => c.total_amount),
+        backgroundColor: categoryData.map(c => c.category_color),
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 10,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { font: { size: 12 }, padding: 12, boxWidth: 14 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.label}: ${Number(ctx.raw).toLocaleString()}원 (${categoryData[ctx.dataIndex].percentage}%)`
+          }
+        }
+      }
+    }
+  });
+}
+
+// 일별 라인 차트
+if (dailyData.length > 0) {
+  const ctx2 = document.getElementById('dailyLineChart').getContext('2d');
+  new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: dailyData.map(d => {
+        const dt = new Date(d.date);
+        return `${dt.getMonth()+1}/${dt.getDate()}`;
+      }),
+      datasets: [{
+        label: '일별 지출',
+        data: dailyData.map(d => d.total_amount),
+        borderColor: '#0ea5e9',
+        backgroundColor: 'rgba(14,165,233,0.1)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#0ea5e9',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => Number(ctx.raw).toLocaleString() + '원' } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => v >= 10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString()
+          }
+        }
+      }
+    }
+  });
+}
+
+// 예산 설정 폼
+document.getElementById('budgetForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const catId = parseInt(document.getElementById('budgetCategory').value);
+  const amount = parseFloat(document.getElementById('budgetAmount').value);
+  if (!catId || !amount) return;
+
+  try {
+    const res = await fetch('/api/budgets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category_id: catId, amount, year: currentYear, month: currentMonth }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '설정 실패');
+    showToast('✅ 예산이 설정되었습니다.');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+  }
+});
+
+// 예산 삭제 (카테고리 ID로 해당 월 예산 조회 후 삭제)
+async function deleteBudget(categoryId) {
+  if (!confirm('이 예산 설정을 삭제하시겠습니까?')) return;
+  try {
+    // 해당 연월의 예산 목록 조회
+    const res = await fetch(`/api/budgets?year=${currentYear}&month=${currentMonth}`);
+    const budgets = await res.json();
+    const budget = budgets.find(b => b.category_id === categoryId);
+    if (!budget) throw new Error('예산을 찾을 수 없습니다.');
+
+    const delRes = await fetch(`/api/budgets/${budget.id}`, { method: 'DELETE' });
+    if (!delRes.ok) throw new Error('삭제 실패');
+    showToast('🗑️ 예산이 삭제되었습니다.');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('❌ ' + err.message, true);
+  }
+}
+
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `fixed bottom-6 right-6 text-white text-sm px-5 py-3 rounded-xl shadow-xl
+    transition-all duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+  el.style.opacity = '1';
+  el.style.transform = 'translateY(0)';
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(1rem)';
+  }, 3000);
+}
+</script>
+{% endblock %}

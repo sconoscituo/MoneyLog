@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}MoneyLog{% endblock %} - 가계부</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#f0f9ff', 100:'#e0f2fe', 500:'#0ea5e9', 600:'#0284c7', 700:'#0369a1' },
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- 공통 스타일 -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- 네비게이션 바 -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- 로고 -->
+        <a href="/" class="flex items-center gap-2 font-bold text-xl text-sky-600">
+          <span class="text-2xl">💸</span>
+          MoneyLog
+        </a>
+
+        <!-- 네비게이션 링크 -->
+        <div class="flex items-center gap-1">
+          <a href="/"
+             class="nav-link px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                    {% if request.url.path == '/' %}bg-sky-50 text-sky-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            🏠 대시보드
+          </a>
+          <a href="/expenses"
+             class="nav-link px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                    {% if request.url.path == '/expenses' %}bg-sky-50 text-sky-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            📝 지출 내역
+          </a>
+          <a href="/reports"
+             class="nav-link px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                    {% if request.url.path == '/reports' %}bg-sky-50 text-sky-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+            📊 리포트
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 메인 컨텐츠 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% if error %}
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <p class="text-red-600 font-medium">{{ error }}</p>
+        <a href="/" class="mt-3 inline-block text-sm text-sky-600 hover:underline">홈으로 돌아가기</a>
+      </div>
+    {% else %}
+      {% block content %}{% endblock %}
+    {% endif %}
+  </main>
+
+  <!-- 공통 JS -->
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

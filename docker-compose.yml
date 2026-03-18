@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - moneylog_data:/app/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./data/moneylog.db
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  moneylog_data:

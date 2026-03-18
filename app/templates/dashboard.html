@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- 페이지 헤더 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">이번 달 현황</h1>
+      <p class="text-sm text-gray-500 mt-1">{{ current_year }}년 {{ current_month }}월</p>
+    </div>
+    <a href="/expenses"
+       class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white
+              text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      + 지출 추가
+    </a>
+  </div>
+
+  <!-- 예산 초과 알림 -->
+  {% if exceeded_budgets %}
+  <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+      <span class="text-2xl">⚠️</span>
+      <div>
+        <p class="font-semibold text-red-800">예산 초과 알림</p>
+        <ul class="mt-1 space-y-1">
+          {% for b in exceeded_budgets %}
+          <li class="text-sm text-red-700">
+            {{ b.category_icon }} {{ b.category_name }}: 예산 {{ "{:,.0f}".format(b.budget_amount) }}원 중
+            <strong>{{ "{:,.0f}".format(b.spent_amount) }}원</strong> 지출
+            ({{ "{:.0f}".format(b.usage_rate * 100) }}%)
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 요약 카드 -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <!-- 이번 달 총 지출 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <p class="text-sm text-gray-500 font-medium">이번 달 총 지출</p>
+      <p class="text-3xl font-bold text-gray-900 mt-1">
+        {{ "{:,.0f}".format(report.total_amount) }}<span class="text-lg font-normal text-gray-500">원</span>
+      </p>
+      <p class="text-xs text-gray-400 mt-2">{{ current_month }}월 {{ today.day }}일 기준</p>
+    </div>
+
+    <!-- 카테고리 수 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <p class="text-sm text-gray-500 font-medium">지출 항목 수</p>
+      <p class="text-3xl font-bold text-gray-900 mt-1">
+        {{ report.category_summaries | sum(attribute='count') }}<span class="text-lg font-normal text-gray-500">건</span>
+      </p>
+      <p class="text-xs text-gray-400 mt-2">{{ report.category_summaries | length }}개 카테고리</p>
+    </div>
+
+    <!-- 일평균 지출 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <p class="text-sm text-gray-500 font-medium">일평균 지출</p>
+      <p class="text-3xl font-bold text-gray-900 mt-1">
+        {% if today.day > 0 %}
+        {{ "{:,.0f}".format(report.total_amount / today.day) }}
+        {% else %}
+        0
+        {% endif %}
+        <span class="text-lg font-normal text-gray-500">원</span>
+      </p>
+      <p class="text-xs text-gray-400 mt-2">{{ today.day }}일 기준 평균</p>
+    </div>
+  </div>
+
+  <!-- 차트 섹션 -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- 카테고리별 도넛 차트 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-4">카테고리별 지출 비율</h2>
+      {% if report.category_summaries %}
+      <div class="relative h-56">
+        <canvas id="categoryChart"></canvas>
+      </div>
+      <div class="mt-4 space-y-2">
+        {% for cat in report.category_summaries[:5] %}
+        <div class="flex items-center justify-between text-sm">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full inline-block" style="background-color: {{ cat.category_color }}"></span>
+            <span class="text-gray-600">{{ cat.category_icon }} {{ cat.category_name }}</span>
+          </div>
+          <div class="text-right">
+            <span class="font-medium text-gray-900">{{ "{:,.0f}".format(cat.total_amount) }}원</span>
+            <span class="text-gray-400 ml-1">({{ cat.percentage }}%)</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="h-56 flex items-center justify-center text-gray-400">
+        <div class="text-center">
+          <p class="text-4xl mb-2">📭</p>
+          <p class="text-sm">이번 달 지출 내역이 없습니다.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 일별 지출 추이 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-4">일별 지출 추이</h2>
+      {% if report.daily_expenses %}
+      <div class="relative h-56">
+        <canvas id="dailyChart"></canvas>
+      </div>
+      {% else %}
+      <div class="h-56 flex items-center justify-center text-gray-400">
+        <div class="text-center">
+          <p class="text-4xl mb-2">📈</p>
+          <p class="text-sm">아직 데이터가 없습니다.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 예산 현황 -->
+  {% if report.budget_statuses %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold text-gray-800">예산 현황</h2>
+      <a href="/reports" class="text-sm text-sky-600 hover:underline">예산 관리 →</a>
+    </div>
+    <div class="space-y-4">
+      {% for b in report.budget_statuses %}
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="font-medium text-gray-700">{{ b.category_icon }} {{ b.category_name }}</span>
+          <span class="{% if b.is_exceeded %}text-red-600 font-semibold{% else %}text-gray-500{% endif %}">
+            {{ "{:,.0f}".format(b.spent_amount) }} / {{ "{:,.0f}".format(b.budget_amount) }}원
+          </span>
+        </div>
+        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all"
+               style="width: {{ [b.usage_rate * 100, 100] | min }}%;
+                      background-color: {% if b.is_exceeded %}#ef4444{% elif b.usage_rate > 0.8 %}#f97316{% else %}{{ b.category_color }}{% endif %}">
+          </div>
+        </div>
+        {% if b.is_exceeded %}
+        <p class="text-xs text-red-500 mt-1">{{ "{:,.0f}".format(b.spent_amount - b.budget_amount) }}원 초과</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 최근 지출 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold text-gray-800">최근 지출</h2>
+      <a href="/expenses" class="text-sm text-sky-600 hover:underline">전체 보기 →</a>
+    </div>
+    {% if recent_expenses %}
+    <div class="divide-y divide-gray-50">
+      {% for exp in recent_expenses %}
+      <div class="flex items-center justify-between py-3">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">{{ exp.category.icon }}</span>
+          <div>
+            <p class="text-sm font-medium text-gray-800">{{ exp.memo or exp.category.name }}</p>
+            <p class="text-xs text-gray-400">
+              {{ exp.expense_date.strftime('%m월 %d일') }} · {{ exp.category.name }}
+            </p>
+          </div>
+        </div>
+        <span class="text-sm font-semibold text-gray-900">
+          -{{ "{:,.0f}".format(exp.amount) }}원
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-400">
+      <p class="text-4xl mb-2">📝</p>
+      <p class="text-sm">아직 지출 내역이 없습니다.</p>
+      <a href="/expenses" class="mt-3 inline-block text-sm text-sky-600 hover:underline">첫 지출을 등록해보세요</a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const categoryData = JSON.parse({{ report.category_summaries | tojson | tojson }});
+const dailyData = JSON.parse({{ report.daily_expenses | tojson | tojson }});
+
+// 카테고리 도넛 차트
+if (categoryData.length > 0) {
+  const ctx1 = document.getElementById('categoryChart').getContext('2d');
+  new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+      labels: categoryData.map(c => c.category_icon + ' ' + c.category_name),
+      datasets: [{
+        data: categoryData.map(c => c.total_amount),
+        backgroundColor: categoryData.map(c => c.category_color),
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.label}: ${Number(ctx.raw).toLocaleString()}원`
+          }
+        }
+      }
+    }
+  });
+}
+
+// 일별 막대 차트
+if (dailyData.length > 0) {
+  const ctx2 = document.getElementById('dailyChart').getContext('2d');
+  new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: dailyData.map(d => {
+        const dt = new Date(d.date);
+        return `${dt.getMonth()+1}/${dt.getDate()}`;
+      }),
+      datasets: [{
+        label: '지출',
+        data: dailyData.map(d => d.total_amount),
+        backgroundColor: 'rgba(14, 165, 233, 0.8)',
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${Number(ctx.raw).toLocaleString()}원`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => (v >= 10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString())
+          }
+        }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}
