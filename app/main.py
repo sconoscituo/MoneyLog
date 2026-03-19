@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import expenses as expenses_router
+from app.routers import expenses as expenses_router, analytics
 from app.routers import budgets as budgets_router
 from app.routers import reports as reports_router
 from app.routers import pages as pages_router
@@ -151,6 +151,7 @@ app.include_router(budgets_router.router)
 app.include_router(reports_router.router)
 app.include_router(recurring_router.router)
 app.include_router(exports_router.router)
+app.include_router(analytics.router, prefix="/api/v1")
 
 
 @app.exception_handler(404)
